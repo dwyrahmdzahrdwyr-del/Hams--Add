@@ -1,7 +1,86 @@
+
 <!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head><meta charset="UTF-8"><title>همس - Hams</title></head>
-<body style="text-align:center;font-family:sans-serif;padding:50px">
-<h1>🎙️ همس - فويس 15 ثانية بلا كتابة</h1>
-<p>التطبيق شغال - جاري رفع الكود الكامل...</p>
-</body></html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>همس - Hams V2</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#08080c;color:#fff;font-family:system-ui,sans-serif;padding:0 0 80px}
+.top{position:sticky;top:0;background:#0b0b12;padding:16px;border-bottom:1px solid #222;z-index:10}
+.logo{font-size:28px;font-weight:900}
+.logo span{color:#a855f7}
+.card{background:#13131c;border:1px solid #2a2a3a;border-radius:18px;padding:16px;margin:14px}
+.btn{width:100%;padding:15px;border-radius:14px;border:0;font-size:16px;font-weight:800;cursor:pointer}
+.btn-w{background:#fff;color:#000}
+.btn-p{background:#7c3aed;color:#fff}
+.btn-g{background:#222;color:#fff;border:1px solid #333}
+input{width:100%;padding:15px;border-radius:14px;background:#0a0a10;border:1px solid #333;color:#fff;font-size:16px;outline:none;margin:8px 0}
+.room{display:flex;gap:12px;align-items:center;background:#14141d;border:1px solid #2a2a3a;border-radius:16px;padding:14px;margin:10px 14px;cursor:pointer}
+.room b{font-size:18px}
+.room small{color:#aaa}
+.pill{display:inline-block;background:#2a1545;color:#c084fc;padding:4px 10px;border-radius:20px;font-size:12px}
+.rec{width:76px;height:76px;border-radius:50%;background:#7c3aed;border:0;color:#fff;font-size:28px;margin:10px auto;display:block}
+.whis{background:#1a1a26;border-radius:14px;padding:12px;margin:10px 0}
+audio{width:100%;margin-top:8px}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:#0b0b12;border-top:1px solid #222;display:flex;padding:10px}
+.tabs button{flex:1;background:none;border:0;color:#888;font-size:14px;font-weight:700}
+.tabs button.on{color:#a855f7}
+.hidden{display:none!important}
+.center{text-align:center}
+.muted{color:#aaa;font-size:13px}
+</style>
+</head>
+<body>
+<div id="login">
+<div style="padding:28px 20px 10px" class="center"><div style="font-size:52px">🌙</div><div class="logo">همس <span>Hams</span></div><p class="muted">همسات 15 ثانية • غرف عامة وخاصة • بدون حكم</p></div>
+<div class="card"><h3 style="margin:0 0 8px">مرحباً بك في همس</h3><p class="muted">سجل دخولك عشان تدخل الغرف</p>
+<button class="btn btn-w" onclick="login('Google')">G المتابعة عبر جوجل</button><br><br>
+<button class="btn btn-p" onclick="showPhone()">📞 المتابعة برقم الهاتف</button>
+<div id="phoneBox" class="hidden"><input id="phone" placeholder="+20 01xxxxxxxxx"><button class="btn btn-p" onclick="loginPhone()">دخول</button><p class="muted center">نسخة تجريبية - هتدخل على طول من غير كود SMS</p></div>
+</div>
+</div>
+<div id="app" class="hidden">
+<div class="top"><div class="logo">همس <span>Hams</span></div><div class="muted" id="userLine"></div></div>
+<div id="page-rooms">
+<div class="card"><b>🔒 غرفة خاصة برقم التليفون</b><p class="muted">اكتب رقم صاحب الغرفة عشان تدخل غرفته الخاصة</p><input id="joinPhone" placeholder="رقم صاحب الغرفة - مثلا 01012345678"><button class="btn btn-p" onclick="joinPrivate()">دخول الغرفة الخاصة</button><button class="btn btn-g" style="margin-top:8px" onclick="createMyRoom()">+ اعمل غرفتي الخاصة</button><p class="muted center" id="myRoomInfo"></p></div>
+<div style="padding:0 14px"><b>الغرف العامة</b> <span class="pill">4 غرف</span></div>
+<div id="roomsList"></div>
+</div>
+<div id="page-room" class="hidden">
+<div class="card"><button class="btn btn-g" onclick="backRooms()">← كل الغرف</button><h2 id="roomTitle" style="margin:12px 0 4px"></h2><p class="muted" id="roomDesc"></p><span class="pill" id="roomPill"></span></div>
+<div class="card center"><div id="timer" style="font-size:36px;font-weight:900">00:15</div><p class="muted">سجل همستك في الغرفة دي</p><button class="rec" id="recBtn" onclick="toggleRec()">🎤</button><p id="recStatus" class="muted">دوس عشان تسجل - 15 ثانية</p><button class="btn btn-p hidden" id="sendBtn" onclick="sendWhisper()">إرسال الهمسة للغرفة ✓</button></div>
+<div style="padding:0 14px"><b>همسات الغرفة</b></div><div id="whispers" style="padding:0 14px"></div>
+</div>
+<div class="tabs"><button class="on" onclick="showTab('rooms')">غرف</button><button onclick="showTab('my')">غرفتي</button><button onclick="logout()">خروج</button></div>
+</div>
+<script>
+let user=localStorage.getItem('hams_user')||'';
+let currentRoom=null, mediaRecorder=null, chunks=[], stream=null, recording=false, timerInt=null, left=15, lastBlob=null;
+const rooms=[
+{id:'night',name:'غرفة الليل 🌙',desc:'أحاديث هادئة ليلية',type:'عامة'},
+{id:'fad',name:'غرفة الفضفضة 💭',desc:'فضفض وارتاح معنا',type:'عامة'},
+{id:'laugh',name:'غرفة الضحك 😂',desc:'للمزح والضحك',type:'عامة'},
+{id:'love',name:'غرفة الحب ❤️',desc:'أحاديث الحب والعلاقات',type:'عامة'},
+];
+function showPhone(){document.getElementById('phoneBox').classList.remove('hidden')}
+function login(n){user='مستخدم '+n;localStorage.setItem('hams_user',user);startApp()}
+function loginPhone(){let p=document.getElementById('phone').value.trim();if(p.length<9){alert('اكتب رقم صحيح');return}user=p;localStorage.setItem('hams_user',user);startApp()}
+function startApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');document.getElementById('userLine').textContent='مسجل دخولك: '+user;renderRooms();let r=localStorage.getItem('hams_myroom');if(r)document.getElementById('myRoomInfo').textContent='غرفتك الخاصة: '+r+' - ابعت رقمك لصحابك يدخلوا';}
+function renderRooms(){document.getElementById('roomsList').innerHTML=rooms.map(r=>`<div class="room" onclick="openRoom('${r.id}','${r.name}','${r.desc}','${r.type}')"><div style="font-size:30px">💬</div><div><b>${r.name}</b><br><small>${r.desc} • ${getCount(r.id)} همسة</small></div></div>`).join('')}
+function getCount(id){let a=JSON.parse(localStorage.getItem('hams_'+id)||'[]');return a.length}
+function openRoom(id,name,desc,type){currentRoom=id;document.getElementById('page-rooms').classList.add('hidden');document.getElementById('page-room').classList.remove('hidden');document.getElementById('roomTitle').textContent=name;document.getElementById('roomDesc').textContent=desc;document.getElementById('roomPill').textContent=type+' • '+getCount(id)+' همسة';renderWhispers()}
+function backRooms(){document.getElementById('page-room').classList.add('hidden');document.getElementById('page-rooms').classList.remove('hidden');renderRooms()}
+function joinPrivate(){let p=document.getElementById('joinPhone').value.trim();if(p.length<9){alert('اكتب رقم صاحب الغرفة');return}openRoom('private_'+p,'غرفة خاصة 🔒','غرفة خاصة - رقم '+p,'خاصة برقم '+p)}
+function createMyRoom(){if(!user){alert('سجل دخول الأول');return}localStorage.setItem('hams_myroom',user);document.getElementById('myRoomInfo').textContent='تم! غرفتك الخاصة: '+user+' - ابعت رقمك ده لصحابك';alert('غرفتك اتعملت! رقمها هو رقمك: '+user)}
+function showTab(t){if(t==='my'){let r=localStorage.getItem('hams_myroom')||user;if(!r){alert('اعمل غرفتك الأول');return}openRoom('private_'+r,'غرفتي الخاصة 🔒','غرفتك - رقم '+r,'خاصة');}else{backRooms()}}
+function renderWhispers(){let list=JSON.parse(localStorage.getItem('hams_'+currentRoom)||'[]');let el=document.getElementById('whispers');if(!list.length)el.innerHTML='<p class="muted center">لسه مفيش همسات هنا - كن أول واحد يهمس</p>';else el.innerHTML=list.slice().reverse().map(w=>`<div class="whis"><b>${w.user}</b> <small style="color:#888">${w.time}</small><audio controls src="${w.url}"></audio></div>`).join('')}
+async function toggleRec(){if(recording){stopRec();return}try{stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=e=>chunks.push(e.data);mediaRecorder.onstop=()=>{lastBlob=new Blob(chunks,{type:'audio/webm'});document.getElementById('sendBtn').classList.remove('hidden');document.getElementById('recStatus').textContent='تمام! دوس إرسال';};mediaRecorder.start();recording=true;left=15;document.getElementById('recBtn').textContent='⏹️';document.getElementById('recStatus').textContent='بيسجل...';timerInt=setInterval(()=>{left--;document.getElementById('timer').textContent='00:'+String(left).padStart(2,'0');if(left<=0)stopRec()},1000)}catch(e){alert('اسمح للمايك من المتصفح')}}
+function stopRec(){if(!recording)return;clearInterval(timerInt);recording=false;mediaRecorder.stop();stream.getTracks().forEach(t=>t.stop());document.getElementById('recBtn').textContent='🎤';document.getElementById('timer').textContent='00:15'}
+function sendWhisper(){if(!lastBlob)return;let r=new FileReader();r.onload=()=>{let list=JSON.parse(localStorage.getItem('hams_'+currentRoom)||'[]');list.push({user:user,time:new Date().toLocaleString('ar-EG'),url:r.result});localStorage.setItem('hams_'+currentRoom,JSON.stringify(list));lastBlob=null;document.getElementById('sendBtn').classList.add('hidden');document.getElementById('recStatus').textContent='تم إرسال همستك للغرفة ✓';renderWhispers()};r.readAsDataURL(lastBlob)}
+function logout(){localStorage.removeItem('hams_user');location.reload()}
+if(user)startApp();
+</script>
+</body>
+</html>
